@@ -19,8 +19,8 @@ import alpaca_trade_api as tradeapi
 # SCHWAB_REDIRECT_URI = "your_schwab_redirect_uri"
 # SCHWAB_ACCESS_TOKEN = None
 
-ALPACA_API_KEY = "PKIVS959YFNIUMVO27Y1"
-ALPACA_SECRET_KEY = "2FDF5OXLZPT7unhH6esmuEjaxTsjlAgfxKQM1FDO"
+ALPACA_API_KEY = 
+ALPACA_SECRET_KEY = 
 BASE_URL = "https://paper-api.alpaca.markets"
 
 alpaca = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, BASE_URL, api_version='v2')
