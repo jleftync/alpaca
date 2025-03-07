@@ -7,17 +7,17 @@ import requests
 import alpaca_trade_api as tradeapi
 
 # Credentials (use environment variables in production)
-USERNAME = "your_username"
-PASSWORD = "your_password"
-TD_CLIENT_ID = "your_td_client_id"
-TD_ACCOUNT_ID = "your_td_account_id"
-TD_REDIRECT_URI = "your_redirect_uri"
-TD_ACCESS_TOKEN = None
+# USERNAME = "your_username"
+# PASSWORD = "your_password"
+# TD_CLIENT_ID = "your_td_client_id"
+# TD_ACCOUNT_ID = "your_td_account_id"
+# TD_REDIRECT_URI = "your_redirect_uri"
+# TD_ACCESS_TOKEN = None
 
-SCHWAB_CLIENT_ID = "your_schwab_client_id"
-SCHWAB_ACCOUNT_ID = "your_schwab_account_id"
-SCHWAB_REDIRECT_URI = "your_schwab_redirect_uri"
-SCHWAB_ACCESS_TOKEN = None
+# SCHWAB_CLIENT_ID = "your_schwab_client_id"
+# SCHWAB_ACCOUNT_ID = "your_schwab_account_id"
+# SCHWAB_REDIRECT_URI = "your_schwab_redirect_uri"
+# SCHWAB_ACCESS_TOKEN = None
 
 ALPACA_API_KEY = "PKIVS959YFNIUMVO27Y1"
 ALPACA_SECRET_KEY = "2FDF5OXLZPT7unhH6esmuEjaxTsjlAgfxKQM1FDO"
@@ -36,21 +36,31 @@ def get_price_alpaca(symbol):
         print(f"⚠️ Error fetching price: {e}")
         return None
 
+def market_is_open():
+    """Check if the market is open."""
+    try:
+        clock = alpaca.get_clock()
+        return clock.is_open
+    except Exception as e:
+        print(f"⚠️ Error checking market status: {e}")
+        return False
+
+def wait_for_market_open():
+    """Wait until the market opens before proceeding."""
+    while not market_is_open():
+        print("⏳ Market is closed. Waiting for open...")
+        time.sleep(60)  # Check every minute
+
 def trade_tqqq_alpaca():
     """Main trading loop for TQQQ."""
     symbol = "TQQQ"
 
-    # Wait for market open if necessary
-    while True:
-        now = datetime.datetime.now(pytz.utc).astimezone(eastern)  # Convert to ET
-        if now.hour >= 9 and now.minute >= 30:
-            break
-        print("⏳ Waiting for market to open...")
-        time.sleep(60)  # Check every minute
+    # If launched outside trading hours, wait until market opens
+    wait_for_market_open()
 
     print("🚀 Market open! Starting trading bot...")
 
-    # Fetch the first available price to use as a reference
+    # Get the first price
     current_price = None
     while current_price is None:
         current_price = get_price_alpaca(symbol)
@@ -64,15 +74,8 @@ def trade_tqqq_alpaca():
     print(f"✅ Using starting price: {current_price:.2f}")
     print(f"🛑 Stop-loss price set at: {stop_loss_price:.2f}")
 
-    # Run trading loop until market closes
-    while True:
-        now = datetime.datetime.now(pytz.utc).astimezone(eastern)  # Convert to ET
-
-        # Check if market is closed (4 PM ET)
-        if now.hour >= 16:
-            print("⏳ Market closed. Exiting for today...")
-            break  # Exit trading loop
-
+    # Trading loop until market closes
+    while market_is_open():
         current_price = get_price_alpaca(symbol)
         if current_price is None:
             print("⚠️ Failed to fetch current price, retrying...")
@@ -99,13 +102,13 @@ def trade_tqqq_alpaca():
                 alpaca.submit_order(
                     symbol=symbol, qty=1, side='buy', type='market', time_in_force='gtc'
                 )
-                sell_price = current_price
+                sell_price = None  # Reset sell price after buying back
             except Exception as e:
                 print(f"⚠️ Order failed: {e}")
 
         time.sleep(60)  # Check price every minute
 
-    print("🌙 Sleeping overnight... Restarting bot at market open.")
+    print("⏳ Market closed. Exiting for today...")
     time.sleep(60 * 60 * 8)  # Sleep 8 hours before next market day
     trade_tqqq_alpaca()  # Restart for the next day
 
