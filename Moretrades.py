@@ -91,6 +91,32 @@ def trade_stocks():
                 except Exception as e:
                     print(f"⚠️ Sell order failed: {e}")
 
+            # Buy back if price returns to original stop-loss price before 3:30 PM
+            if sell_prices[symbol] is not None and current_price >= stop_loss_prices[symbol] and current_time < datetime.time(15, 30):
+                print(f"🛒 Buying back {symbol} before 3:30 PM at {current_price:.2f}")
+                try:
+                    cash_available = sell_prices[symbol] * shares_sold[symbol]
+                    qty_to_buy = int(cash_available / current_price)
+                    if qty_to_buy > 0:
+                        alpaca.submit_order(symbol=symbol, qty=qty_to_buy, side='buy', type='market', time_in_force='gtc')
+                        sell_prices[symbol] = None
+                        shares_sold[symbol] = 0
+                except Exception as e:
+                    print(f"⚠️ Buyback order failed: {e}")
+
+            # If stock is bought back before 3:30 PM and falls below stop-loss again, sell it again
+            if sell_prices[symbol] is None and current_price <= stop_loss_prices[symbol] and shares_sold[symbol] == 0:
+                print(f"💰 Re-selling {symbol} at {current_price:.2f} after buyback")
+                try:
+                    position = alpaca.get_position(symbol)
+                    qty = int(position.qty)
+                    if qty > 0:
+                        alpaca.submit_order(symbol=symbol, qty=qty, side='sell', type='market', time_in_force='gtc')
+                        sell_prices[symbol] = current_price
+                        shares_sold[symbol] = qty
+                except Exception as e:
+                    print(f"⚠️ Re-sell order failed: {e}")
+
             # 3:30 PM Buyback using proceeds from sold shares
             if datetime.time(15, 30) <= current_time <= datetime.time(15, 31) and shares_sold[symbol] > 0:
                 print(f"🛒 Buying back {symbol} with all proceeds at {current_price:.2f}")
